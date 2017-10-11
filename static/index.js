@@ -4,12 +4,14 @@ let runningTimer = false;
 let shapeName = 'triangle';
 
 const SHAPES = { };
+const RULES = { };
 const PAUSE = 30;
 const POINTS_PER_TICK = 100;
 
 let canvas, ctx;
 let currentPoint;
 let currentShape;
+let currentRule;
 
 let isSimpleDrawing = true;
 let isSimpleConstruction = true;
@@ -34,6 +36,37 @@ function addShape( name, vertexCount, startAngle = 0 ) {
             y: cy - y,
         };
     });
+}
+
+function ruleVectorCenter( startPoint, target ) {
+    const dx = startPoint.x - target.x;
+    const dy = startPoint.y - target.y;
+
+    const li = isSimpleConstruction ?
+            currentShape.length - 1 :
+            1 + Math.ceil( Math.random() * (currentShape.length - 2) );
+
+    return {
+        x: target.x + dx / li,
+        y: target.y + dy / li,
+    };
+}
+
+function rule90CCWFromVectorCenter( startPoint, target ) {
+    const dx = startPoint.x - target.x;
+    const dy = startPoint.y - target.y;
+    // const radius = Math.sqrt( dx * dx + dy * dy ) / 2;
+
+    const li = isSimpleConstruction ?
+            currentShape.length - 1 :
+            1 + Math.ceil( Math.random() * (currentShape.length - 2) );
+
+    const pdx = dx / li;
+    const pdy = dy / li;
+    return {
+        x: target.x + pdx + pdy / li,
+        y: target.y + pdy - pdx / li,
+    };
 }
 
 function addPoints( points ) {
@@ -97,20 +130,12 @@ function addNextPoints( count ) {
     for (let i = 0; i < count; i++) {
         const vertexIndex = Math.floor( Math.random() * currentShape.length );
         const vertex = currentShape[ vertexIndex ];
-        const dx = currentPoint.x - vertex.x;
-        const dy = currentPoint.y - vertex.y;
 
-        const li = isSimpleConstruction ?
-                currentShape.length - 1 :
-                1 + Math.ceil( Math.random() * (currentShape.length - 2) );
-
-        currentPoint = {
-            x: vertex.x + dx / li,
-            y: vertex.y + dy / li,
-        };
+        currentPoint = currentRule( currentPoint, vertex );
 
         points.push( currentPoint );
     }
+    console.log(currentPoint.x, currentPoint.y);
 
     addPoints( points );
 
@@ -129,11 +154,13 @@ function tick() {
     };
 }
 
-function start( shapeName ) {
+function start( shapeName = 'triangle', ruleName = 'vector center' ) {
     ctx.fillStyle = '#ffc';
     ctx.fillRect( 0, 0, canvas.width, canvas.height );
 
     currentShape = SHAPES[ shapeName ];
+    currentRule = RULES[ ruleName ];
+
     addPoints( currentShape );
 
     // for (let i = 0; i < currentShape.length; i++) {
@@ -163,18 +190,38 @@ function init() {
     addShape( 'pentagon', 5 );
     addShape( 'hexagon', 6 );
 
-    const select = window.document.querySelector( '#shapes' );
+    RULES[ 'vector center' ] = ruleVectorCenter;
+    RULES[ '90 deg CCW from vector center' ] = rule90CCWFromVectorCenter;
+
+    // DOM handling
+
+    const restart = e => {
+        start(
+            shapeList[ shapeList.selectedIndex ].value,
+            ruleList[ ruleList.selectedIndex ].value,
+        );
+        stop.disabled = false;
+    };
+
+    const shapeList = window.document.querySelector( '#shapes' );
     Object.keys( SHAPES ).forEach( key => {
         const option = window.document.createElement( 'option' );
         option.value = key;
         option.textContent = key;
-        select.appendChild( option );
+        shapeList.appendChild( option );
     });
 
-    select.addEventListener( 'change', e => {
-        start( select[ select.selectedIndex ].value );
-        stop.disabled = false;
+    shapeList.addEventListener( 'change', restart );
+
+    const ruleList = window.document.querySelector( '#rules' );
+    Object.keys( RULES ).forEach( key => {
+        const option = window.document.createElement( 'option' );
+        option.value = key;
+        option.textContent = key;
+        ruleList.appendChild( option );
     });
+
+    ruleList.addEventListener( 'change', restart );
 
     const simpleDrawing = window.document.querySelector( '#simple-drawing' );
     simpleDrawing.checked = isSimpleDrawing;
@@ -200,7 +247,12 @@ function init() {
         }
     });
 
-    start( select[ select.selectedIndex ].value );
+    // start
+
+    start(
+        shapeList[ shapeList.selectedIndex ].value ,
+        ruleList[ ruleList.selectedIndex ].value ,
+    );
 }
 
 init();
